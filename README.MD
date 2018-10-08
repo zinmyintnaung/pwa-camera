@@ -1,4 +1,4 @@
-# Progressive Web Apps - Complete Guide
+# Progressive Web Apps - Complete Guide (Max course)
 This source code is part of Maximilian Schwarzmüller's "Progressive Web Apps - Complete Guide" course on udemy.com.
 
 # How to Use
