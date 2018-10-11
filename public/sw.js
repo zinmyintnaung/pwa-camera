@@ -1,3 +1,6 @@
+importScripts('/src/js/idb.js');
+importScripts('/src/js/utility.js');
+
 var CACHE_STATIC_NAME = 'static1';
 var CACHE_DYNAMIC_NAME = 'dynamic1';
 var STATIC_FILES = [
@@ -6,6 +9,7 @@ var STATIC_FILES = [
     '/offline.html',
     '/src/js/app.js',
     '/src/js/feed.js',
+    '/src/js/idb.js',
     '/src/js/promise.js',
     '/src/js/fetch.js',
     '/src/js/material.min.js',
@@ -16,6 +20,22 @@ var STATIC_FILES = [
     'https://fonts.googleapis.com/icon?family=Material+Icons',
     'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
 ];
+
+
+
+// function trimCache(cacheName, maxItems){
+//     caches.open(cacheName)
+//         .then(function(cache){
+//             return cache.keys()
+//                 .then(function(keys){
+//                     if(key.length > maxItems){
+//                         cache.delete(keys[0])
+//                             .then(trimCache(cacheName, maxItems))
+//                     }
+//                 });       
+//         });
+// }
+
 self.addEventListener('install', function(event){
     console.log('SW - Installing service worker..', event);
     event.waitUntil(
@@ -43,27 +63,44 @@ self.addEventListener('activate', function(event){
     return self.clients.claim();
 });
 
+function isInArray(string, array){
+    for(var i=0; i<array.length; i++){
+        if(array[i] === string){
+            return true;
+        }
+    }
+    return false;
+}
 
 self.addEventListener('fetch', function(event){
-    var url = 'https://httpbin.org/get';
+    var url = 'https://pwa-testapp-25632.firebaseio.com/posts.json';
     if(event.request.url.indexOf(url) > -1){ 
         //cache then network, only if we are calling outside URL such as APIs
         event.respondWith(
-            caches.open(CACHE_DYNAMIC_NAME)
-                .then(function(cache){
-                    return fetch(event.request)
-                        .then(function(res){
-                            cache.put(event.request, res.clone());
-                            return res;
+            fetch(event.request)
+                .then(function(res){
+                    //store to indexDB instead of storing in cache
+                    var clonedRes = res.clone();
+                    clearAllData('posts')
+                        .then(function(){
+                            console.log("clear called...");
+                            return clonedRes.json();//the return value will be passed to next .then callback
+                        })
+                        .then(function(data){
+                            //transform the data
+                            for(var key in data){
+                                //write data
+                                writeData('posts', data[key]);
+                            }
                         });
+                    return res;
                 })
         );
-    }else if(new RegExp('\\b' + STATIC_FILES.join('\\b|\\b') + '\\b').test(event.request.url)){
+    }else if(isInArray(event.request.url, STATIC_FILES)){
         event.respondWith( //cache only strategy for static files, such as app shell
             caches.match(event.request)
         );
-    }
-    else{
+    }else{
         //cache with network fallback, only if we are brownsing our own resources
         event.respondWith(
             caches.match(event.request)
@@ -75,6 +112,7 @@ self.addEventListener('fetch', function(event){
                         .then(function(res){
                             return caches.open(CACHE_DYNAMIC_NAME)
                                 .then(function(cache){
+                                    //trimCache(CACHE_DYNAMIC_NAME, 5);
                                     cache.put(event.request.url, res.clone());
                                     return res;
                                 });
@@ -82,7 +120,7 @@ self.addEventListener('fetch', function(event){
                         .catch(function(err){//if network also faild, then show offline.html page
                             return caches.open(CACHE_STATIC_NAME)
                                 .then(function(cache){
-                                    if(event.request.url.indexOf('/help')){
+                                    if(event.request.headers.get('accept').includes('text/html')){//if url is an html page and not cache yet, then return offline.html page
                                         return cache.match('/offline.html');
                                     }
                                 });
