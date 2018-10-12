@@ -2,6 +2,9 @@ var dbPromise = idb.open('posts-store', 1, function(db){
     if(!db.objectStoreNames.contains('posts')){
         db.createObjectStore('posts', {keyPath: 'id'});//defining 'id' as primary key for posts table
     }
+    if(!db.objectStoreNames.contains('sync-posts')){
+        db.createObjectStore('sync-posts', {keyPath: 'id'});//sync-post is for offline post storage, later data from this table will be post to server when internet connection is available
+    }
 });
 
 function writeData(st, data){

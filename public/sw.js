@@ -131,6 +131,47 @@ self.addEventListener('fetch', function(event){
     }
 });
 
+self.addEventListener('sync', function(event){
+    console.log('SW - background syncing!', event);
+    if(event.tag === 'sync-new-posts'){
+        console.log('SW - Syncing new post..');
+        event.waitUntil(
+            readAllData('sync-posts')
+                .then(function(data){
+                    
+                    for(var dt of data){
+                        fetch('https://us-central1-pwa-testapp-25632.cloudfunctions.net/storePostData', {
+                            method: 'POST',
+                            headers:{
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              id: dt.id,
+                              title: dt.title,
+                              location: dt.location,
+                              image: 'https://firebasestorage.googleapis.com/v0/b/pwa-testapp-25632.appspot.com/o/sf-boat.jpg?alt=media&token=9c9a4d6a-e7c4-4b84-8f6d-7ba48b3fd3b2'
+                            })
+                        })
+                        .then(function(res){
+                            //clean up sync-posts object store from indexDB once posted to server
+                            if(res.ok){
+                                res.json()
+                                    .then(function(resData){
+                                        deleteItemFromData('sync-posts', resData.id);
+                                    });
+                            }
+                        })
+                        .catch(function(err){
+                            console.log('Error while sending data', err);
+                        });
+                    }
+                    
+                })
+        );
+    }
+});
+
 /** CACHE THEN NETWORK */
 // self.addEventListener('fetch', function(event){
 //     event.respondWith(
